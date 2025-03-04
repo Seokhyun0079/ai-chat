@@ -9,9 +9,6 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
-/.venv/
-.venv
-.venv/**
 # testing
 /coverage
 
