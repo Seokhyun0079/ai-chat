@@ -1,5 +1,5 @@
 "use client";
-import { useState, KeyboardEvent } from "react";
+import { useState, useRef, useEffect, KeyboardEvent } from "react";
 import Image from "next/image";
 import UserChatMessage from "./chat-message/user-chat-message";
 
@@ -13,17 +13,27 @@ export default function Home() {
     { text: "안녕하세요! 무엇을 도와드릴까요?", isUser: false },
   ]);
   const [inputText, setInputText] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   const handleSendMessage = async () => {
     if (inputText.trim()) {
       // Send the message to the server
       try {
+        console.dir(messages[messages.length - 1].text);
         const response = await fetch("/api/chat/", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ prompt: inputText }),
+          body: JSON.stringify({
+            prompt: inputText,
+            previous_message: messages[messages.length - 1].text,
+            max_length: 30,
+          }),
         });
 
         console.log(response);
@@ -43,11 +53,16 @@ export default function Home() {
           { text: data.response, isUser: false },
         ]);
         setInputText("");
+        scrollToBottom();
       } catch (error) {
         console.error("Error sending message:", error);
       }
     }
   };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   const handleKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
@@ -78,6 +93,7 @@ export default function Home() {
               </div>
             )
           )}
+          <div ref={messagesEndRef} />
         </div>
       </main>
 
