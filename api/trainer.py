@@ -4,6 +4,7 @@ from torch.utils.data import Dataset, DataLoader
 from transformers import GPT2LMHeadModel, GPT2TokenizerFast, Trainer, TrainingArguments
 from file_reader import read_log_files, open_file
 from transformers import AutoTokenizer
+import re
 
 # KoGPT2 모델과 토크나이저 로드
 model_name = "skt/kogpt2-base-v2"
@@ -23,107 +24,132 @@ print(f"Using device: {device}")
 # 모델을 GPU로 이동
 model.to(device)
 
+def create_conversation_pairs(my_messages, other_messages):
+    """대화 쌍을 만들어서 맥락을 유지하면서 학습할 수 있도록 합니다."""
+    conversation_pairs = []
+    
+    # 메시지들을 시간순으로 정렬 (실제로는 로그 파일의 순서대로)
+    min_len = min(len(my_messages), len(other_messages))
+    
+    for i in range(min_len):
+        # 상대방 메시지가 내 메시지보다 먼저 온 경우
+        if i < len(other_messages):
+            context = other_messages[i]
+            response = my_messages[i] if i < len(my_messages) else ""
+            
+            # 대화 형식으로 만들기
+            conversation = f"상대: {context}\n나: {response}"
+            conversation_pairs.append(conversation)
+    
+    return conversation_pairs
+
+def create_training_data(conversation_pairs, max_length=512):
+    """대화 데이터를 학습에 적합한 형태로 변환합니다."""
+    training_data = []
+    
+    for conversation in conversation_pairs:
+        # 대화를 토큰화
+        encoding = tokenizer(
+            conversation,
+            truncation=True,
+            max_length=max_length,
+            padding='max_length',
+            return_tensors='pt'
+        )
+        
+        # 입력과 레이블을 동일하게 설정 (자기회귀 학습)
+        input_ids = encoding['input_ids'].flatten()
+        attention_mask = encoding['attention_mask'].flatten()
+        
+        # 레이블은 입력과 동일하되, 패딩 토큰은 -100으로 설정
+        labels = input_ids.clone()
+        labels[labels == tokenizer.pad_token_id] = -100
+        
+        training_data.append({
+            'input_ids': input_ids,
+            'attention_mask': attention_mask,
+            'labels': labels
+        })
+    
+    return training_data
+
 # 데이터셋 클래스 정의
-class CustomDataset(Dataset):
-    def __init__(self, text_data):
-        self.target_texts = text_data[0]
-        self.input_texts = text_data[1]
-        self.length = min(len(self.target_texts), len(self.input_texts))
-        self.tokenizer = tokenizer
+class ConversationDataset(Dataset):
+    def __init__(self, training_data):
+        self.data = training_data
     
     def __len__(self):
-        return self.length
+        return len(self.data)
     
     def __getitem__(self, idx):
-        if idx >= self.length:
-            raise IndexError("Index out of bounds")
-            
-        target_text = self.target_texts[idx]
-        input_text = self.input_texts[idx]
-        
-        input_encoding = self.tokenizer(
-            input_text,
-            add_special_tokens=True,
-            max_length=512,
-            padding='max_length',
-            truncation=True,
-            return_tensors='pt'
-        )
-        
-        target_encoding = self.tokenizer(
-            target_text,
-            add_special_tokens=True,
-            max_length=512,
-            padding='max_length',
-            truncation=True,
-            return_tensors='pt'
-        )
-        
-        input_ids = input_encoding['input_ids'].flatten()
-        target_ids = target_encoding['input_ids'].flatten()
-        
-        labels = target_ids.clone()
-        labels[labels == self.tokenizer.pad_token_id] = -100
-        
-        return {
-            'input_ids': input_ids,
-            'attention_mask': input_encoding['attention_mask'].flatten(),
-            'labels': labels
-        }
+        return self.data[idx]
 
+# 파일들을 읽어서 대화 데이터 생성
 file_names = read_log_files()
+all_conversations = []
+
 for file in file_names:
-    text_data = open_file(file)
-    dataset = CustomDataset(text_data)
-    data_loader = DataLoader(
-        dataset,
-        batch_size=8,
-        shuffle=True,
-        pin_memory=False
-    )
+    conversations = open_file(file)
+    all_conversations.extend(conversations)
 
-    def get_latest_checkpoint_path(base_path='results'):
-        existing_checkpoints = [d for d in os.listdir(base_path) if d.startswith('checkpoint-')]
-        checkpoint_numbers = [int(d.split('-')[1]) for d in existing_checkpoints if d.split('-')[1].isdigit()]
-        if checkpoint_numbers:
-            latest_checkpoint_number = max(checkpoint_numbers)
-            return os.path.join(base_path, f'checkpoint-{latest_checkpoint_number}')
-        return None
+print(f"총 {len(all_conversations)}개의 대화 시퀀스를 생성했습니다.")
 
-    # latest_checkpoint_path = get_latest_checkpoint_path()
-    # if latest_checkpoint_path:
-    #     print(f"Resuming training from checkpoint: {latest_checkpoint_path}")
-    # else:
-    #     print("No checkpoint found, starting training from scratch")
+# 학습 데이터 생성
+training_data = create_training_data(all_conversations)
+dataset = ConversationDataset(training_data)
 
-    training_args = TrainingArguments(
-        output_dir="./results",
-        overwrite_output_dir=True,
-        num_train_epochs=3,
-        per_device_train_batch_size=8,
-        save_steps=10_000,
-        save_total_limit=2,
-        fp16=True,
-        logging_steps=500,
-    )
+print(f"데이터셋 크기: {len(dataset)}")
 
-    trainer = Trainer(
-        model=model,
-        args=training_args,
-        train_dataset=dataset,
-    )
+# 샘플 데이터 출력 (디버깅용)
+if len(dataset) > 0:
+    sample = dataset[0]
+    sample_text = tokenizer.decode(sample['input_ids'])
+    print(f"샘플 대화:\n{sample_text[:200]}...")
+    print(f"토큰 수: {len(sample['input_ids'])}")
 
-    try:
-        # 학습 시작 (체크포인트에서 재개)
-        # model.load_state_dict(torch.load(latest_checkpoint_path), strict=False)
-        # trainer.train(resume_from_checkpoint=latest_checkpoint_path)
-        trainer.train()
+def get_latest_checkpoint_path(base_path='results'):
+    existing_checkpoints = [d for d in os.listdir(base_path) if d.startswith('checkpoint-')]
+    checkpoint_numbers = [int(d.split('-')[1]) for d in existing_checkpoints if d.split('-')[1].isdigit()]
+    if checkpoint_numbers:
+        latest_checkpoint_number = max(checkpoint_numbers)
+        return os.path.join(base_path, f'checkpoint-{latest_checkpoint_number}')
+    return None
 
-        # 모델과 토크나이저 저장
-        model.save_pretrained('results/')
-        tokenizer.save_pretrained('results/')
+# 학습 설정 개선
+training_args = TrainingArguments(
+    output_dir="./results",
+    overwrite_output_dir=True,
+    num_train_epochs=5,  # 에포크 수 증가
+    per_device_train_batch_size=4,  # 배치 크기 조정
+    save_steps=500,  # 더 자주 저장
+    save_total_limit=3,  # 체크포인트 수 증가
+    fp16=True,
+    logging_steps=100,  # 더 자주 로깅
+    learning_rate=5e-5,  # 학습률 조정
+    warmup_steps=100,  # 워밍업 스텝 추가
+    gradient_accumulation_steps=2,  # 그래디언트 누적
+    evaluation_strategy="no",  # 평가 비활성화 (데이터가 적을 수 있으므로)
+    load_best_model_at_end=False,
+    remove_unused_columns=False,
+)
 
-        torch.cuda.empty_cache()
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        torch.cuda.empty_cache()
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=dataset,
+)
+
+try:
+    print("훈련을 시작합니다...")
+    trainer.train()
+
+    # 모델과 토크나이저 저장
+    model.save_pretrained('results/')
+    tokenizer.save_pretrained('results/')
+    
+    print("훈련이 완료되었습니다!")
+    torch.cuda.empty_cache()
+    
+except Exception as e:
+    print(f"훈련 중 오류가 발생했습니다: {e}")
+    torch.cuda.empty_cache()

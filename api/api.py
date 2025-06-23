@@ -96,9 +96,9 @@ app = FastAPI()
 class ChatRequest(BaseModel):
     prompt: str
     previous_message: str
-    max_length: int = 50
+    max_length: int = 300
 
-def generate_response(prompt, max_length=200):
+def generate_response(prompt, max_length=2000):
     # 입력 문장을 토큰화
     input_ids = tokenizer.encode(prompt, return_tensors='pt').to(device)  # GPU로 이동
     
@@ -118,59 +118,10 @@ def get_latest_checkpoint_path(base_path='results'):
 # 챗봇 응답 엔드포인트
 @app.post("/chat/")
 async def chat(request: ChatRequest):
-    dataset = CustomDataset(request.prompt, request.previous_message)
-    data_loader = DataLoader(
-        dataset,
-        batch_size=8,
-        shuffle=True,
-        pin_memory=False
-    )
-    
-    # 데이터셋의 모든 텐서를 GPU로 이동
-    for batch in data_loader:
-        batch['input_ids'] = batch['input_ids'].to(device)
-        batch['attention_mask'] = batch['attention_mask'].to(device)
-        batch['labels'] = batch['labels'].to(device)
-
-    latest_checkpoint_path = get_latest_checkpoint_path()
-    if latest_checkpoint_path:
-        print(f"Resuming training from checkpoint: {latest_checkpoint_path}")
-    else:
-        print("No checkpoint found, starting training from scratch")
-
-    training_args = TrainingArguments(
-        output_dir="./results",
-        overwrite_output_dir=True,
-        num_train_epochs=3,
-        per_device_train_batch_size=8,
-        save_steps=10_000,
-        save_total_limit=2,
-        fp16=True,
-        logging_steps=500,
-    )
-
-    trainer = Trainer(
-        model=model,
-        args=training_args,
-        train_dataset=dataset,
-    )
-
-    try:
-        # 학습 시작 (체크포인트에서 재개)
-        trainer.train(resume_from_checkpoint=latest_checkpoint_path)
-
-        # 모델과 토크나이저 저장
-        model.save_pretrained('results/')
-        tokenizer.save_pretrained('results/')
-
-        torch.cuda.empty_cache()
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        torch.cuda.empty_cache()
     print(request)
     print(request.previous_message)
     print(request.max_length)
-    response = generate_response(request.prompt, request.max_length)
+    response = generate_response(request.prompt, 200)
     return {"response": response}
 
 # 서버 생존 확인 엔드포인트
