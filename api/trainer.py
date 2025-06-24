@@ -1,7 +1,7 @@
 import os
 import torch
 import shutil
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 from transformers import Trainer, TrainingArguments
 from file_reader import read_log_files, open_file
 import re
@@ -137,7 +137,7 @@ training_args = TrainingArguments(
     learning_rate=5e-5,  # 학습률 조정
     warmup_steps=100,  # 워밍업 스텝 추가
     gradient_accumulation_steps=2,  # 그래디언트 누적
-    evaluation_strategy="no",  # 평가 비활성화 (데이터가 적을 수 있으므로)
+    eval_strategy="no",  # 평가 비활성화 (데이터가 적을 수 있으므로)
     load_best_model_at_end=False,
     remove_unused_columns=False,
 )
@@ -149,6 +149,7 @@ trainer = Trainer(
 )
 
 try:
+    torch.cuda.empty_cache()
     print("훈련을 시작합니다...")
     trainer.train()
 

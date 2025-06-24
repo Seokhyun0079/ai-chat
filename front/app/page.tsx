@@ -6,17 +6,38 @@ import UserChatMessage from "./chat-message/user-chat-message";
 interface Message {
   text: string;
   isUser: boolean;
+  id: string;
+  visible: boolean;
 }
 
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([
-    { text: "안녕하세요! 무엇을 도와드릴까요?", isUser: false },
+    { text: "나다", isUser: false, id: "0", visible: true },
   ]);
   const [inputText, setInputText] = useState("");
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const addMessageWithDelay = (newMessages: Message[]) => {
+    setMessages((prev) => [
+      ...prev,
+      ...newMessages.map((msg) => ({ ...msg, visible: false })),
+    ]);
+
+    // Show messages one by one with 0.5s delay
+    newMessages.forEach((message, index) => {
+      setTimeout(() => {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === message.id ? { ...msg, visible: true } : msg
+          )
+        );
+        scrollToBottom();
+      }, index * 500);
+    });
   };
 
   const handleSendMessage = async () => {
@@ -31,7 +52,6 @@ export default function Home() {
           },
           body: JSON.stringify({
             prompt: inputText,
-            previous_message: messages[messages.length - 1].text,
             max_length: 30,
           }),
         });
@@ -46,14 +66,34 @@ export default function Home() {
         const data = await response.json();
         console.log("Server response:", data);
 
-        // Update the local state
-        setMessages([
-          ...messages,
-          { text: inputText, isUser: true },
-          { text: data.response, isUser: false },
-        ]);
+        // Split the response by newlines and create separate messages
+        const split = data.response.split("\n");
+        const responseLines = split.filter(
+          (line: string, index: number) =>
+            line.trim() !== "" && index !== split.length - 1
+        );
+
+        // Create new messages array with user message and bot responses
+        const userMessage: Message = {
+          text: inputText,
+          isUser: true,
+          id: Date.now().toString(),
+          visible: false,
+        };
+
+        const botMessages: Message[] = responseLines.map(
+          (line: string, index: number) => ({
+            text: line,
+            isUser: false,
+            id: (Date.now() + index + 1).toString(),
+            visible: false,
+          })
+        );
+
+        // Add all messages with delay
+        const allNewMessages = [userMessage, ...botMessages];
+        addMessageWithDelay(allNewMessages);
         setInputText("");
-        scrollToBottom();
       } catch (error) {
         console.error("Error sending message:", error);
       }
@@ -82,13 +122,31 @@ export default function Home() {
         <div className="space-y-4">
           {messages.map((message, index) =>
             message.isUser ? (
-              <UserChatMessage key={index} message={message} />
+              <div
+                key={message.id}
+                className={`transition-all duration-500 ease-in-out ${
+                  message.visible
+                    ? "opacity-100 transform translate-y-0"
+                    : "opacity-0 transform translate-y-4"
+                }`}
+              >
+                <UserChatMessage message={message} />
+              </div>
             ) : (
-              <div key={index} className="flex items-start gap-2.5">
-                <div className="flex flex-col gap-1 w-full max-w-[320px] leading-1.5 p-4 border-gray-200 bg-gray-100 rounded-e-xl rounded-es-xl dark:bg-gray-700">
-                  <p className="text-sm font-normal text-gray-900 dark:text-white">
-                    {message.text}
-                  </p>
+              <div
+                key={message.id}
+                className={`transition-all duration-500 ease-in-out ${
+                  message.visible
+                    ? "opacity-100 transform translate-y-0"
+                    : "opacity-0 transform translate-y-4"
+                }`}
+              >
+                <div className="flex items-start gap-2.5">
+                  <div className="flex flex-col gap-1 w-full max-w-[320px] leading-1.5 p-4 border-gray-200 bg-yellow-100 rounded-e-xl rounded-es-xl dark:bg-yellow-800">
+                    <p className="text-sm font-normal text-gray-900 dark:text-white">
+                      {message.text}
+                    </p>
+                  </div>
                 </div>
               </div>
             )
