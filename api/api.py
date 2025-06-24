@@ -6,8 +6,9 @@ import os
 import torch
 from torch.utils.data import Dataset, DataLoader
 from transformers import GPT2LMHeadModel, GPT2TokenizerFast, Trainer, TrainingArguments
+from model_selector import SKT_MODEL
 
-trained_model_path = "results/"
+trained_model_path = SKT_MODEL
 
 # 모델 설정 로드
 config = GPT2Config.from_pretrained(trained_model_path)
