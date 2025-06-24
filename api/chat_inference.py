@@ -25,8 +25,8 @@ def load_trained_model(model_path='results/'):
 
 def generate_response(model, tokenizer, user_input, max_length=100, temperature=0.8):
     """사용자 입력에 대한 응답을 생성합니다."""
-    # 대화 형식으로 입력 구성
-    prompt = f"상대: {user_input}\n나:"
+    # 구분자 없이 입력 구성
+    prompt = f"{user_input}\n"
     
     # 입력 토큰화
     inputs = tokenizer.encode(prompt, return_tensors='pt')
@@ -55,13 +55,13 @@ def generate_response(model, tokenizer, user_input, max_length=100, temperature=
     # 디버깅용 (처음 몇 번만)
     print(f"[DEBUG] 전체 생성 텍스트: {generated_text}")
     
-    # "나:" 이후의 부분만 추출하고 구분자 제거
-    if "나:" in generated_text:
-        response = generated_text.split("나:")[-1].strip()
+    # 프롬프트 제거
+    if prompt in generated_text:
+        response = generated_text.replace(prompt, "").strip()
     else:
         response = generated_text
     
-    # 구분자 제거
+    # 구분자 제거 (혹시 남아있다면)
     response = response.replace("상대:", "").replace("나:", "").strip()
     
     # 여러 줄인 경우 첫 번째 줄만 사용

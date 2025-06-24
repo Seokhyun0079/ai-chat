@@ -92,15 +92,13 @@ def open_file(file_name):
         if current_sequence:
             conversation_sequences.append(current_sequence)
         
-        # 대화 형식으로 변환
+        # 대화 형식으로 변환 (구분자 없이)
         formatted_conversations = []
         for sequence in conversation_sequences:
             conversation_text = ""
             for entry in sequence:
-                if entry['user'] == my_name:
-                    conversation_text += f"나: {entry['message']}\n"
-                else:
-                    conversation_text += f"상대: {entry['message']}\n"
+                # 구분자 없이 메시지만 추가
+                conversation_text += f"{entry['message']}\n"
             formatted_conversations.append(conversation_text.strip())
         
         return formatted_conversations

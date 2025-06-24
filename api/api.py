@@ -7,11 +7,6 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from transformers import GPT2LMHeadModel, GPT2TokenizerFast, Trainer, TrainingArguments
 
-# KoGPT2 모델과 토크나이저 로드
-# model_name = "skt/kogpt2-base-v2"
-# model = GPT2LMHeadModel.from_pretrained(model_name)
-# tokenizer = GPT2TokenizerFast.from_pretrained(model_name)
-
 trained_model_path = "results/"
 
 # 모델 설정 로드
@@ -86,10 +81,6 @@ class CustomDataset(Dataset):
 
 app = FastAPI()
 
-# KoGPT2 모델과 토크나이저 로드
-# 기존의 사전 학습된 모델 로드 부분을 주석 처리하거나 제거
-# model_name = "skt/kogpt2-base-v2"
-# model = GPT2LMHeadModel.from_pretrained(model_name)
 
 # trainer.py에서 생성한 모델 로드
 # 요청 바디 모델 정의
