@@ -2,19 +2,30 @@
 import { useState, useRef, useEffect, KeyboardEvent } from "react";
 import Image from "next/image";
 import UserChatMessage from "./chat-message/user-chat-message";
+import ShareIcon from "./component/share-icon";
+import SaveChatDialog from "./component/save-chat-dialog";
+import { exportChatToFile } from "./utils/chat-export";
 
 interface Message {
   text: string;
   isUser: boolean;
   id: string;
   visible: boolean;
+  timestamp: Date;
 }
 
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([
-    { text: "나다", isUser: false, id: "0", visible: true },
+    {
+      text: "나다",
+      isUser: false,
+      id: "0",
+      visible: true,
+      timestamp: new Date(),
+    },
   ]);
   const [inputText, setInputText] = useState("");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const scrollToBottom = () => {
@@ -79,6 +90,7 @@ export default function Home() {
           isUser: true,
           id: Date.now().toString(),
           visible: false,
+          timestamp: new Date(),
         };
 
         const botMessages: Message[] = responseLines.map(
@@ -87,6 +99,7 @@ export default function Home() {
             isUser: false,
             id: (Date.now() + index + 1).toString(),
             visible: false,
+            timestamp: new Date(),
           })
         );
 
@@ -110,17 +123,33 @@ export default function Home() {
     }
   };
 
+  const handleShare = () => {
+    setIsDialogOpen(true);
+  };
+
+  const handleSaveChat = (aiName: string, userName: string) => {
+    // 메시지를 exportChatToFile에서 사용하는 형식으로 변환
+    const chatMessages = messages.map((message) => ({
+      role: message.isUser ? ("user" as const) : ("assistant" as const),
+      content: message.text,
+      timestamp: message.timestamp,
+    }));
+
+    exportChatToFile(chatMessages, aiName, userName);
+  };
+
   return (
     <div className="flex flex-col h-screen bg-gray-100 dark:bg-gray-900">
       {/* Chat header */}
-      <header className="p-4 bg-white dark:bg-gray-800 shadow">
+      <header className="p-4 bg-white dark:bg-gray-800 shadow flex justify-between items-center">
         <h1 className="text-xl font-bold">AI Chat</h1>
+        <ShareIcon className="w-6 h-6" onClick={handleShare} />
       </header>
 
       {/* Chat messages area */}
       <main className="flex-1 p-4 overflow-y-auto">
         <div className="space-y-4">
-          {messages.map((message, index) =>
+          {messages.map((message) =>
             message.isUser ? (
               <div
                 key={message.id}
@@ -174,6 +203,13 @@ export default function Home() {
           </button>
         </div>
       </footer>
+
+      {/* Save Chat Dialog */}
+      <SaveChatDialog
+        isOpen={isDialogOpen}
+        onClose={() => setIsDialogOpen(false)}
+        onSave={handleSaveChat}
+      />
     </div>
   );
 }

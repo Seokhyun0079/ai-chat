@@ -71,7 +71,6 @@ docker-compose up --build
 
 - フロントエンド: http://localhost:3000
 - バックエンド API: http://localhost:8000
-- API ドキュメント: http://localhost:8000/docs
 
 ### ローカル開発環境
 
@@ -278,7 +277,6 @@ docker-compose up --build
 
 - 프론트엔드: http://localhost:3000
 - 백엔드 API: http://localhost:8000
-- API 문서: http://localhost:8000/docs
 
 ### 로컬 개발 환경
 

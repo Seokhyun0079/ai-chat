@@ -23,7 +23,7 @@ class ModelSelector:
       self.model.eval()
       self.tokenizer = AutoTokenizer.from_pretrained(PHI_MODEL)
       self.batch_size = 1
-      self.max_length = 512
+      self.max_length = 1
       self.fp16 = False
     else:
       raise ValueError("Invalid model name")
