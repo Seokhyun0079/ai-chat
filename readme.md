@@ -164,6 +164,7 @@ def select_model(self):
 ### バックエンド
 
 - `PYTHONUNBUFFERED=1`: ログの即座出力
+- `MY_NAME`: カカオトークログで使用する自分の名前 (例: `[田中太郎]`)
 
 ### フロントエンド
 
@@ -213,13 +214,15 @@ def select_model(self):
 
 ### 学習 データ 準備
 
-- カカオトウログファイルを `api/kakaotalkLog/` フォルダに配置
+- カカオトークログファイルを `api/kakaotalkLog/` フォルダに配置
+- **重要**: 環境変数 `MY_NAME` に自分の名前を設定 (例: `export MY_NAME="[田中太郎]"`)
 - または他のダイアログデータ 準備
 
 ### 学習 実行
 
 ```bash
 cd api
+export MY_NAME="[自分の名前]"  # 自分の名前を設定
 python trainer.py
 ```
 
@@ -233,6 +236,12 @@ python trainer.py
 
 - 学習 完了後 `model_selector.py` でパス設定
 - API サーバー 再起動 必要
+
+### 注意事項
+
+- `MY_NAME` が設定されていない場合、デフォルトで `[황석현]` が使用されます
+- カカオトークログの形式: `[名前] [時間] メッセージ内容`
+- 現在の実装では、すべてのメッセージが学習データとして使用されます
 
 ---
 
@@ -402,6 +411,7 @@ def select_model(self):
 ### 백엔드
 
 - `PYTHONUNBUFFERED=1`: 로그 즉시 출력
+- `MY_NAME`: 카카오톡 로그에서 사용할 자신의 이름 (예: `[김철수]`)
 
 ### 프론트엔드
 
@@ -452,12 +462,14 @@ def select_model(self):
 ### 학습 데이터 준비
 
 - 카카오톡 로그 파일을 `api/kakaotalkLog/` 폴더에 배치
+- **중요**: 환경변수 `MY_NAME`에 자신의 이름을 설정 (예: `export MY_NAME="[김철수]"`)
 - 또는 다른 대화 데이터 준비
 
 ### 학습 실행
 
 ```bash
 cd api
+export MY_NAME="[자신의 이름]"  # 자신의 이름을 설정
 python trainer.py
 ```
 
@@ -471,3 +483,9 @@ python trainer.py
 
 - 학습 완료 후 `model_selector.py`에서 경로 설정
 - API 서버 재시작 필요
+
+### 주의사항
+
+- `MY_NAME`이 설정되지 않은 경우, 기본값으로 `[황석현]`이 사용됩니다
+- 카카오톡 로그 형식: `[이름] [시간] 메시지 내용`
+- 현재 구현에서는 모든 메시지가 학습 데이터로 사용됩니다
